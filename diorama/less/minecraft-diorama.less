@@ -1,0 +1,90 @@
+.diorama {
+  margin-top: 40px;
+}
+
+.block {
+  background-image: url('../img/dirt.png');
+  background-color: transparent;
+
+  .backgroundSetup();
+
+  &.stone      { background-image: url('../img/stone.png'); }
+  &.sand       { background-image: url('../img/sand.png'); }
+  &.diamond    { background-image: url('../img/diamond.png'); }
+  &.water      { background-image: url('../img/water.png'); }
+  &.plank      { background-image: url('../img/planks.png'); }
+  &.wool-pink  { background-image: url('../img/wool-pink.png'); }
+  &.wool-white { background-image: url('../img/wool-white.png'); }
+  &.cobble     { background-image: url('../img/cobble.png'); }
+  &.leaves     { background-image: url('../img/leaves.png'); }
+
+  .alt-block(grass, '../img/grass-top.png', '../img/grass-side.png', '../img/grass-side.png');
+  .alt-block(log, '../img/log-side.png', '../img/log-side-r.png', '../img/log-front.png');
+  .alt-block(chest, '../img/chest-top.png', '../img/chest-front.png', '../img/chest-side.png');
+  .alt-block(crafting, '../img/craft-top.png', '../img/craft-front.png', '../img/craft-side.png');
+
+  .door-bit(door-top, '../img/door-top.png');
+  .door-bit(door-top-r, '../img/door-top-r.png');
+  .door-bit(door-bottom, '../img/door-bottom.png');
+  .door-bit(door-bottom-r, '../img/door-bottom-r.png');
+}
+
+.entity {
+  .backgroundSetup();
+
+  background-color: transparent;
+
+  &.glass:before { background-image: url('../img/glass.png'); }
+  &.rose { background-image: url('../img/rose.png'); }
+}
+
+@-webkit-keyframes spin {
+  50% {
+    -webkit-transform: rotateX(75deg) rotateZ(-22deg);
+    -moz-transform: rotateX(75deg) rotateZ(-22deg);
+  }
+}
+
+.diorama {
+  -webkit-animation: spin 30s .0s ease-in-out infinite;
+  -moz-animation: spin 30s .0s ease-in-out infinite;
+}
+
+.backgroundSetup() {
+  image-rendering: optimizeSpeed;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+.door-bit(@name, @img) {
+  &.@{name} {
+    background-image: none;
+
+    &:before {
+      display: none;
+    }
+
+    &:after {
+      background-image: url(@img);
+    }
+  }
+}
+
+.alt-block(@name, @top, @front, @side) {
+  &.@{name} {
+    background-image: url(@top);
+
+    &:before {
+      background-image: url(@front);
+    }
+
+    &:after {
+      background-image: url(@side);
+    }
+  }
+}

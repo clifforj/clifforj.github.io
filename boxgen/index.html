@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Envelope Box Pattern Gen</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #pattern {
+      border: 1px solid #cdcdcd;
+    }
+  </style>
+
+  <script type="text/javascript" src="snap.svg-min.js"></script>
+</head>
+<body>
+<svg id="pattern" width="1000px" height="950px"></svg>
+
+<script type="text/javascript">
+  const scale = 1; // Scale of 1 to keep the dimensions at mm level - scale of 3.85 looks pretty good on screen
+  const pageCenter = { x: 500, y: 475 };
+
+  // Contents
+  const cardHeight = 88 * scale; // 88 (FFTCG) - in mm
+  const cardWidth = 63 * scale; // 63 (FFTCG) - in mm
+  const cardBevel = 3 * scale; // Not actually used in the design, here for debugging with the card outline
+  const stackHeight = 5 * scale; // height of the card stack in mm
+
+  // Styling
+  const baseStyling = { // The main outline + background
+    fill: '#fff',
+    stroke: '#000',
+    strokeWidth: 1
+  }
+  const foldLineStyling = {stroke: '#777'}
+  const internalCutStyling = {
+    stroke: '#000'
+  }
+
+
+  // Other Config
+  const tabInitialSlant = 3 * scale; // amount in mm the size is offset from start of flap, to start of second slant
+  const tabSecondSlant = 8 * scale; // amount in mm the size is offset the second time
+  const tabSlantRatio = 0.4; // how far along the tab does the initial slant stop
+  const tabSizeRatio = 0.6; // How far the wings wrap over. Needs to be beyond 0.5. 1 is a full wrap over
+  const tabEndBevel = 2 * scale; // the bevel in mm at the end of the wings
+  const tabSlotBevel = 7 * scale; // the bevel in mm for the wing slot
+
+  const flapRatio = 0.75;
+  const flapMargin = 5 * scale;
+  const flapMarginOffset = 1 * scale;
+  const insertWidth = 30 * scale;
+  const insertLength = 10 * scale;
+  const flapBevel = 2 * scale;
+
+  const flappyOffset = 3 * scale; // offset for the small box flaps
+  const flappyHeight = 15 * scale; // height of the small box flaps
+
+  // ------- Here be dragons ----------
+  // ------- Here be dragons ----------
+  // ------- Here be dragons ----------
+
+  // Calculated
+  const tabLength = tabSizeRatio * cardHeight;
+  const tabInitialSlantHeight = tabLength * tabSlantRatio;
+  const tabSecondSlantHeight = tabLength - tabInitialSlantHeight;
+  const tabSlotHeight = 0.5 * cardHeight - tabInitialSlantHeight; // height from end of initial slant
+  const tabSlotRatio = tabSlotHeight / tabSecondSlantHeight;
+  const tabBevelRatio = tabEndBevel / tabSecondSlantHeight;
+  const tabSlotBevelRatioA = tabSlotBevel / tabSlotHeight;
+  const tabSlotBevelRatioB = tabSlotBevel / (tabSecondSlantHeight - tabSlotHeight);
+
+  const flapLength = cardWidth * flapRatio;
+
+  // --- Points
+  // Card
+  const cTopLeft = {
+    x: pageCenter.x - cardWidth/2,
+    y: pageCenter.y - cardHeight/2
+  }
+
+  const cTopRight = {
+    x: pageCenter.x + cardWidth/2,
+    y: pageCenter.y - cardHeight/2
+  }
+
+  const cBottomLeft = {
+    x: pageCenter.x - cardWidth/2,
+    y: pageCenter.y + cardHeight/2
+  }
+
+  const cBottomRight = {
+    x: pageCenter.x + cardWidth/2,
+    y: pageCenter.y + cardHeight/2
+  }
+
+  // Left arm
+  const {
+    leftStackTop,
+    leftStackBottom,
+    leftFlapMarginTop,
+    leftFlapMarginBottom,
+    leftFlapInsertBaseTop,
+    leftFlapInsertBaseBottom,
+    leftFlapSlotTop,
+    leftFlapSlotBottom,
+  } = createLeftFlapPoints();
+
+  // Right arm
+  const {
+    rightStackTop,
+    rightStackBottom,
+    rightFlapMarginTop,
+    rightFlapMarginBottom,
+    rightFlapInsertBaseTop,
+    rightFlapInsertBaseBottom,
+    rightFlapInsertTop,
+    rightFlapInsertBottom,
+    rightFlapInsertBevelStartTop,
+    rightFlapInsertBevelEndTop,
+    rightFlapInsertBevelStartBottom,
+    rightFlapInsertBevelEndBottom,
+  } = createRightFlapPoints();
+
+  // Top arm
+  const {
+    topStackLeft,
+    topStackRight,
+    topTabSlantLeft,
+    topTabSlantRight,
+    topTabEndLeft,
+    topTabEndRight,
+    topTabSlotLeft,
+    topTabSlotRight,
+    topTabSlotMiddle,
+    topTabBevelStartLeft,
+    topTabBevelStartRight,
+    topTabBevelEndLeft,
+    topTabBevelEndRight,
+    topTabSlotBevelLeftA,
+    topTabSlotBevelRightA,
+    topTabSlotBevelLeftB,
+    topTabSlotBevelRightB,
+    topTabSlotBevelInternalLeft,
+    topTabSlotBevelInternalRight,
+    topLeftFlappyA,
+    topLeftFlappyB,
+    topRightFlappyA,
+    topRightFlappyB,
+  } = createTopArmPoints();
+
+  // Bottom arm
+  const {
+    bottomStackLeft,
+    bottomStackRight,
+    bottomTabSlantLeft,
+    bottomTabSlantRight,
+    bottomTabEndLeft,
+    bottomTabEndRight,
+    bottomTabSlotLeft,
+    bottomTabSlotRight,
+    bottomTabSlotMiddle,
+    bottomTabBevelStartLeft,
+    bottomTabBevelStartRight,
+    bottomTabBevelEndLeft,
+    bottomTabBevelEndRight,
+    bottomTabSlotBevelLeftA,
+    bottomTabSlotBevelRightA,
+    bottomTabSlotBevelLeftB,
+    bottomTabSlotBevelRightB,
+    bottomTabSlotBevelInternalLeft,
+    bottomTabSlotBevelInternalRight,
+    bottomLeftFlappyA,
+    bottomLeftFlappyB,
+    bottomRightFlappyA,
+    bottomRightFlappyB,
+  } = createBottomArmPoints();
+
+  //---------------------------------------------//
+  //------------     Draw it      ---------------//
+  //---------------------------------------------//
+
+  const s = Snap("#pattern");
+
+  // Card Points - fer debugging
+  // s.circle(cTopLeft.x, cTopLeft.y, 2);
+  // s.circle(cTopRight.x, cTopRight.y, 2);
+  // s.circle(cBottomLeft.x, cBottomLeft.y, 2);
+  // s.circle(cBottomRight.x, cBottomRight.y, 2);
+  //
+  // s.circle(cTopLeft.x - stackHeight - cardWidth, cTopLeft.y, 2);
+  // s.circle(cBottomLeft.x - stackHeight - cardWidth, cBottomLeft.y, 2);
+  // s.circle(cTopRight.x + stackHeight + cardWidth, cTopRight.y, 2);
+  // s.circle(cBottomRight.x + stackHeight + cardWidth, cBottomRight.y, 2);
+  // DrawLeftFlapPoints();
+  // DrawRightFlapPoints();
+  // DrawTopArmPoints();
+  // DrawBottomArmPoints();
+
+  const outline = s.path(`
+  ${DrawTopArm(false)} ${DrawRightFlap()} ${DrawBottomArm(false)} ${DrawLeftFlap()}
+  `)
+  outline.attr(baseStyling)
+
+
+  // Draws the actual card inside the box
+  // const card = createCardOutline();
+  // card.attr({
+  //   fill: "#ff0000"
+  // });
+
+  let foldLines = [
+      s.line(cTopLeft.x, cTopLeft.y, cTopRight.x, cTopRight.y),
+      s.line(cBottomRight.x, cBottomRight.y, cTopRight.x, cTopRight.y),
+      s.line(cBottomRight.x, cBottomRight.y, cBottomLeft.x, cBottomLeft.y),
+      s.line(cTopLeft.x, cTopLeft.y, cBottomLeft.x, cBottomLeft.y),
+      s.line(topStackLeft.x, topStackLeft.y, topStackRight.x, topStackRight.y),
+      s.line(bottomStackLeft.x, bottomStackLeft.y, bottomStackRight.x, bottomStackRight.y),
+    s.line(rightStackTop.x, rightStackTop.y, rightStackBottom.x, rightStackBottom.y),
+    s.line(leftStackTop.x, leftStackTop.y, leftStackBottom.x, leftStackBottom.y),
+    s.line(topStackLeft.x, topStackLeft.y, cTopLeft.x, cTopLeft.y),
+    s.line(topStackRight.x, topStackRight.y, cTopRight.x, cTopRight.y),
+    s.line(bottomStackLeft.x, bottomStackLeft.y, cBottomLeft.x, cBottomLeft.y),
+    s.line(bottomStackRight.x, bottomStackRight.y, cBottomRight.x, cBottomRight.y),
+  ];
+  foldLines.forEach((l) => l.attr(foldLineStyling))
+
+  const insertSlot = s.path(`
+  M ${leftFlapSlotTop.x - 0.5 * scale} ${leftFlapSlotTop.y}
+  L ${leftFlapSlotTop.x + 0.5 * scale} ${leftFlapSlotTop.y}
+  L ${leftFlapSlotBottom.x + 0.5 * scale} ${leftFlapSlotBottom.y}
+  L ${leftFlapSlotBottom.x - 0.5 * scale} ${leftFlapSlotBottom.y}
+  Z
+  `)
+  insertSlot.attr(internalCutStyling)
+
+  const armCuts = [
+    s.line(topTabSlotBevelInternalLeft.x, topTabSlotBevelInternalLeft.y, topTabSlotMiddle.x, topTabSlotMiddle.y),
+    s.line(bottomTabSlotBevelInternalRight.x, bottomTabSlotBevelInternalRight.y, bottomTabSlotMiddle.x, bottomTabSlotMiddle.y),
+  ]
+  armCuts.forEach((l) => l.attr(internalCutStyling))
+
+  console.log(s.toString().replace('px', 'mm').replace('px', 'mm'));
+
+  const bbox = outline.getBBox();
+  console.log(`${bbox.width.toFixed(1)}mm x ${bbox.height.toFixed(1)}mm`);
+
+  //----------------------------------------------//
+
+  function createCardOutline() {
+    const moveToStart = `M ${cTopLeft.x + cardBevel} ${cTopLeft.y}`;
+
+    const topEdge = `L ${cTopRight.x - cardBevel} ${cTopRight.y}`
+    const topRightBevel = `A ${cardBevel} ${cardBevel} 0 0 1 ${cTopRight.x} ${cTopRight.y + cardBevel}`
+
+    const rightEdge = `L ${cBottomRight.x } ${cBottomRight.y - cardBevel}`
+    const bottomRightBevel = `A ${cardBevel} ${cardBevel} 0 0 1 ${cBottomRight.x - cardBevel} ${cBottomRight.y}`
+
+    const bottomEdge = `L ${cBottomLeft.x + cardBevel} ${cBottomLeft.y}`
+    const bottomLeftBevel = `A ${cardBevel} ${cardBevel} 0 0 1 ${cBottomLeft.x} ${cBottomLeft.y - cardBevel}`
+
+    const leftEdge = `L ${cTopLeft.x} ${cTopLeft.y + cardBevel}`
+    const topLeftBevel = `A ${cardBevel} ${cardBevel} 0 0 1 ${cTopLeft.x + cardBevel} ${cTopLeft.y}`
+
+    return s.path(`${moveToStart} ${topEdge} ${topRightBevel} ${rightEdge} ${bottomRightBevel} ${bottomEdge} ${bottomLeftBevel} ${leftEdge} ${topLeftBevel} Z`);
+  }
+
+  function createTopArmPoints() {
+    const topStackLeft = {
+      x: cTopLeft.x,
+      y: cTopLeft.y - stackHeight,
+    };
+
+    const topStackRight = {
+      x: cTopRight.x,
+      y: cTopRight.y - stackHeight,
+    };
+
+    const topTabSlantLeft = {
+      x: topStackLeft.x + tabInitialSlant,
+      y: topStackLeft.y - tabInitialSlantHeight,
+    };
+
+    const topTabSlantRight = {
+      x: topStackRight.x - tabInitialSlant,
+      y: topStackRight.y - tabInitialSlantHeight,
+    };
+
+    const topTabEndLeft = {
+      x: topStackLeft.x + tabInitialSlant + tabSecondSlant,
+      y: topStackLeft.y - tabLength,
+    };
+
+    const topTabEndRight = {
+      x: topStackRight.x - tabInitialSlant - tabSecondSlant,
+      y: topStackRight.y - tabLength,
+    };
+
+    const topTabSlotLeft = {
+      x: tabSlotRatio * topTabEndLeft.x + (1 - tabSlotRatio) * topTabSlantLeft.x,
+      y: topTabSlantLeft.y - tabSlotHeight,
+    };
+
+    const topTabSlotRight = {
+      x: tabSlotRatio * topTabEndRight.x + (1 - tabSlotRatio) * topTabSlantRight.x,
+      y: topTabSlantLeft.y - tabSlotHeight,
+    };
+
+    const topTabSlotMiddle = {
+      x: pageCenter.x,
+      y: topTabSlotLeft.y,
+    };
+
+    const topTabBevelStartLeft = {
+      x: (1 - tabBevelRatio) * topTabEndLeft.x + tabBevelRatio * topTabSlantLeft.x,
+      y: (1 - tabBevelRatio) * topTabEndLeft.y + tabBevelRatio * topTabSlantLeft.y,
+    };
+
+    const topTabBevelStartRight = {
+      x: (1 - tabBevelRatio) * topTabEndRight.x + tabBevelRatio * topTabSlantRight.x,
+      y: (1 - tabBevelRatio) * topTabEndRight.y + tabBevelRatio * topTabSlantRight.y,
+    };
+
+    const topTabBevelEndLeft = {
+      x: topTabEndLeft.x + tabEndBevel,
+      y: topTabEndLeft.y,
+    };
+
+    const topTabBevelEndRight = {
+      x: topTabEndRight.x - tabEndBevel,
+      y: topTabEndRight.y,
+    };
+
+    const topTabSlotBevelLeftA = {
+      x: (1 - tabSlotBevelRatioA) * topTabSlotLeft.x + tabSlotBevelRatioA * topTabSlantLeft.x,
+      y: (1 - tabSlotBevelRatioA) * topTabSlotLeft.y + tabSlotBevelRatioA * topTabSlantLeft.y,
+    };
+
+    const topTabSlotBevelRightA = {
+      x: (1 - tabSlotBevelRatioA) * topTabSlotRight.x + tabSlotBevelRatioA * topTabSlantRight.x,
+      y: (1 - tabSlotBevelRatioA) * topTabSlotRight.y + tabSlotBevelRatioA * topTabSlantRight.y,
+    };
+
+    const topTabSlotBevelLeftB = {
+      x: (1 - tabSlotBevelRatioB) * topTabSlotLeft.x + tabSlotBevelRatioB * topTabEndLeft.x,
+      y: (1 - tabSlotBevelRatioB) * topTabSlotLeft.y + tabSlotBevelRatioB * topTabEndLeft.y,
+    };
+
+    const topTabSlotBevelRightB = {
+      x: (1 - tabSlotBevelRatioB) * topTabSlotRight.x + tabSlotBevelRatioB * topTabEndRight.x,
+      y: (1 - tabSlotBevelRatioB) * topTabSlotRight.y + tabSlotBevelRatioB * topTabEndRight.y,
+    };
+
+    const topTabSlotBevelInternalLeft = {
+      x: topTabSlotLeft.x + tabSlotBevel,
+      y: topTabSlotLeft.y,
+    };
+
+    const topTabSlotBevelInternalRight = {
+      x: topTabSlotRight.x - tabSlotBevel,
+      y: topTabSlotRight.y,
+    };
+
+    const topLeftFlappyA = {
+      x: cTopLeft.x - flappyHeight,
+      y: cTopLeft.y - flappyOffset
+    }
+    const topLeftFlappyB = {
+      x: topStackLeft.x - flappyHeight,
+      y: topStackLeft.y + flappyOffset
+    }
+
+    const topRightFlappyA = {
+      x: cTopRight.x + flappyHeight,
+      y: cTopRight.y - flappyOffset
+    }
+    const topRightFlappyB = {
+      x: topStackRight.x + flappyHeight,
+      y: topStackRight.y + flappyOffset
+    }
+
+    return {
+      topStackLeft,
+      topStackRight,
+      topTabSlantLeft,
+      topTabSlantRight,
+      topTabEndLeft,
+      topTabEndRight,
+      topTabSlotLeft,
+      topTabSlotRight,
+      topTabSlotMiddle,
+      topTabBevelStartLeft,
+      topTabBevelStartRight,
+      topTabBevelEndLeft,
+      topTabBevelEndRight,
+      topTabSlotBevelLeftA,
+      topTabSlotBevelRightA,
+      topTabSlotBevelLeftB,
+      topTabSlotBevelRightB,
+      topTabSlotBevelInternalLeft,
+      topTabSlotBevelInternalRight,
+      topLeftFlappyA,
+      topLeftFlappyB,
+      topRightFlappyA,
+      topRightFlappyB,
+    };
+  }
+
+  function createBottomArmPoints() {
+    const bottomStackLeft = {
+      x: cBottomLeft.x,
+      y: cBottomLeft.y + stackHeight,
+    };
+
+    const bottomStackRight = {
+      x: cBottomRight.x,
+      y: cBottomRight.y + stackHeight,
+    };
+
+    const bottomTabSlantLeft = {
+      x: bottomStackLeft.x + tabInitialSlant,
+      y: bottomStackLeft.y + tabInitialSlantHeight,
+    };
+
+    const bottomTabSlantRight = {
+      x: bottomStackRight.x - tabInitialSlant,
+      y: bottomStackRight.y + tabInitialSlantHeight,
+    };
+
+    const bottomTabEndLeft = {
+      x: bottomStackLeft.x + tabInitialSlant + tabSecondSlant,
+      y: bottomStackLeft.y + tabLength,
+    };
+
+    const bottomTabEndRight = {
+      x: bottomStackRight.x - tabInitialSlant - tabSecondSlant,
+      y: bottomStackRight.y + tabLength,
+    };
+
+    const bottomTabSlotLeft = {
+      x: tabSlotRatio * bottomTabEndLeft.x + (1 - tabSlotRatio) * bottomTabSlantLeft.x,
+      y: bottomTabSlantLeft.y + tabSlotHeight,
+    };
+
+    const bottomTabSlotRight = {
+      x: tabSlotRatio * bottomTabEndRight.x + (1 - tabSlotRatio) * bottomTabSlantRight.x,
+      y: bottomTabSlantLeft.y + tabSlotHeight,
+    };
+
+    const bottomTabSlotMiddle = {
+      x: pageCenter.x,
+      y: bottomTabSlotLeft.y,
+    };
+
+    const bottomTabBevelStartLeft = {
+      x: (1 - tabBevelRatio) * bottomTabEndLeft.x + tabBevelRatio * bottomTabSlantLeft.x,
+      y: (1 - tabBevelRatio) * bottomTabEndLeft.y + tabBevelRatio * bottomTabSlantLeft.y,
+    };
+
+    const bottomTabBevelStartRight = {
+      x: (1 - tabBevelRatio) * bottomTabEndRight.x + tabBevelRatio * bottomTabSlantRight.x,
+      y: (1 - tabBevelRatio) * bottomTabEndRight.y + tabBevelRatio * bottomTabSlantRight.y,
+    };
+
+    const bottomTabBevelEndLeft = {
+      x: bottomTabEndLeft.x + tabEndBevel,
+      y: bottomTabEndLeft.y,
+    };
+
+    const bottomTabBevelEndRight = {
+      x: bottomTabEndRight.x - tabEndBevel,
+      y: bottomTabEndRight.y,
+    };
+
+    const bottomTabSlotBevelLeftA = {
+      x: (1 - tabSlotBevelRatioA) * bottomTabSlotLeft.x + tabSlotBevelRatioA * bottomTabSlantLeft.x,
+      y: (1 - tabSlotBevelRatioA) * bottomTabSlotLeft.y + tabSlotBevelRatioA * bottomTabSlantLeft.y,
+    };
+
+    const bottomTabSlotBevelRightA = {
+      x: (1 - tabSlotBevelRatioA) * bottomTabSlotRight.x + tabSlotBevelRatioA * bottomTabSlantRight.x,
+      y: (1 - tabSlotBevelRatioA) * bottomTabSlotRight.y + tabSlotBevelRatioA * bottomTabSlantRight.y,
+    };
+
+    const bottomTabSlotBevelLeftB = {
+      x: (1 - tabSlotBevelRatioB) * bottomTabSlotLeft.x + tabSlotBevelRatioB * bottomTabEndLeft.x,
+      y: (1 - tabSlotBevelRatioB) * bottomTabSlotLeft.y + tabSlotBevelRatioB * bottomTabEndLeft.y,
+    };
+
+    const bottomTabSlotBevelRightB = {
+      x: (1 - tabSlotBevelRatioB) * bottomTabSlotRight.x + tabSlotBevelRatioB * bottomTabEndRight.x,
+      y: (1 - tabSlotBevelRatioB) * bottomTabSlotRight.y + tabSlotBevelRatioB * bottomTabEndRight.y,
+    };
+
+    const bottomTabSlotBevelInternalLeft = {
+      x: bottomTabSlotLeft.x + tabSlotBevel,
+      y: bottomTabSlotLeft.y,
+    };
+
+    const bottomTabSlotBevelInternalRight = {
+      x: bottomTabSlotRight.x - tabSlotBevel,
+      y: bottomTabSlotRight.y,
+    };
+
+    const bottomLeftFlappyA = {
+      x: cBottomLeft.x - flappyHeight,
+      y: cBottomLeft.y + flappyOffset
+    }
+    const bottomLeftFlappyB = {
+      x: bottomStackLeft.x - flappyHeight,
+      y: bottomStackLeft.y - flappyOffset
+    }
+
+    const bottomRightFlappyA = {
+      x: cBottomRight.x + flappyHeight,
+      y: cBottomRight.y + flappyOffset
+    }
+    const bottomRightFlappyB = {
+      x: bottomStackRight.x + flappyHeight,
+      y: bottomStackRight.y - flappyOffset
+    }
+
+    return {
+      bottomStackLeft,
+      bottomStackRight,
+      bottomTabSlantLeft,
+      bottomTabSlantRight,
+      bottomTabEndLeft,
+      bottomTabEndRight,
+      bottomTabSlotLeft,
+      bottomTabSlotRight,
+      bottomTabSlotMiddle,
+      bottomTabBevelStartLeft,
+      bottomTabBevelStartRight,
+      bottomTabBevelEndLeft,
+      bottomTabBevelEndRight,
+      bottomTabSlotBevelLeftA,
+      bottomTabSlotBevelRightA,
+      bottomTabSlotBevelLeftB,
+      bottomTabSlotBevelRightB,
+      bottomTabSlotBevelInternalLeft,
+      bottomTabSlotBevelInternalRight,
+      bottomLeftFlappyA,
+      bottomLeftFlappyB,
+      bottomRightFlappyA,
+      bottomRightFlappyB,
+    };
+  }
+
+
+  function createRightFlapPoints() {
+    const rightStackTop = {
+      x: cTopRight.x + stackHeight,
+      y: cTopRight.y,
+    };
+
+    const rightStackBottom = {
+      x: cBottomRight.x + stackHeight,
+      y: cBottomRight.y,
+    };
+
+    const rightFlapMarginTop = {
+      x: rightStackTop.x + flapMargin,
+      y: rightStackTop.y + flapMarginOffset,
+    };
+
+    const rightFlapMarginBottom = {
+      x: rightStackBottom.x + flapMargin,
+      y: rightStackBottom.y - flapMarginOffset,
+    };
+
+    const rightFlapInsertBaseTop = {
+      x: rightStackTop.x + flapLength - insertLength,
+      y: pageCenter.y - insertWidth / 2,
+    };
+
+    const rightFlapInsertBaseBottom = {
+      x: rightStackBottom.x + flapLength - insertLength,
+      y: pageCenter.y + insertWidth / 2,
+    };
+
+    const rightFlapInsertTop = {
+      x: rightFlapInsertBaseTop.x + insertLength,
+      y: rightFlapInsertBaseTop.y,
+    };
+
+    const rightFlapInsertBottom = {
+      x: rightFlapInsertBaseBottom.x + insertLength,
+      y: rightFlapInsertBaseBottom.y,
+    };
+
+    const rightFlapInsertBevelStartTop = {
+      x: rightFlapInsertTop.x - flapBevel,
+      y: rightFlapInsertTop.y,
+    };
+
+    const rightFlapInsertBevelEndTop = {
+      x: rightFlapInsertTop.x,
+      y: rightFlapInsertTop.y + flapBevel,
+    };
+
+    const rightFlapInsertBevelStartBottom = {
+      x: rightFlapInsertBottom.x - flapBevel,
+      y: rightFlapInsertBottom.y,
+    };
+
+    const rightFlapInsertBevelEndBottom = {
+      x: rightFlapInsertBottom.x,
+      y: rightFlapInsertBottom.y - flapBevel,
+    };
+    return {
+      rightStackTop,
+      rightStackBottom,
+      rightFlapMarginTop,
+      rightFlapMarginBottom,
+      rightFlapInsertBaseTop,
+      rightFlapInsertBaseBottom,
+      rightFlapInsertTop,
+      rightFlapInsertBottom,
+      rightFlapInsertBevelStartTop,
+      rightFlapInsertBevelEndTop,
+      rightFlapInsertBevelStartBottom,
+      rightFlapInsertBevelEndBottom,
+    };
+  }
+
+  function createLeftFlapPoints() {
+    const leftStackTop = {
+      x: cTopLeft.x - stackHeight,
+      y: cTopLeft.y,
+    };
+
+    const leftStackBottom = {
+      x: cBottomLeft.x - stackHeight,
+      y: cBottomLeft.y,
+    };
+
+    const leftFlapMarginTop = {
+      x: leftStackTop.x - flapMargin,
+      y: leftStackTop.y + flapMarginOffset,
+    };
+
+    const leftFlapMarginBottom = {
+      x: leftStackBottom.x - flapMargin,
+      y: leftStackBottom.y - flapMarginOffset,
+    };
+
+    const leftFlapInsertBaseTop = {
+      x: leftStackTop.x - (flapLength - insertLength),
+      y: pageCenter.y - insertWidth / 2,
+    };
+
+    const leftFlapInsertBaseBottom = {
+      x: leftStackBottom.x - (flapLength - insertLength),
+      y: pageCenter.y + insertWidth / 2,
+    };
+
+    const leftFlapSlotTop = {
+      x: leftStackTop.x - (cardWidth - (cardWidth * flapRatio)) - insertLength,
+      y: pageCenter.y - insertWidth / 2,
+    };
+
+    const leftFlapSlotBottom = {
+      x: leftStackTop.x - (cardWidth - (cardWidth * flapRatio)) - insertLength,
+      y: pageCenter.y + insertWidth / 2,
+    };
+    return {
+      leftStackTop,
+      leftStackBottom,
+      leftFlapMarginTop,
+      leftFlapMarginBottom,
+      leftFlapInsertBaseTop,
+      leftFlapInsertBaseBottom,
+      leftFlapSlotTop,
+      leftFlapSlotBottom,
+    };
+  }
+
+  function DrawTopArmPoints() {
+    s.circle(topStackLeft.x, topStackLeft.y, 2);
+    s.circle(topStackRight.x, topStackRight.y, 2);
+
+    s.circle(topTabSlantLeft.x, topTabSlantLeft.y, 2);
+    s.circle(topTabSlantRight.x, topTabSlantRight.y, 2);
+    // s.circle(topTabEndLeft.x, topTabEndLeft.y, 2);
+    // s.circle(topTabEndRight.x, topTabEndRight.y, 2);
+
+    s.circle(topTabBevelStartLeft.x, topTabBevelStartLeft.y, 2);
+    s.circle(topTabBevelStartRight.x, topTabBevelStartRight.y, 2);
+    s.circle(topTabBevelEndLeft.x, topTabBevelEndLeft.y, 2);
+    s.circle(topTabBevelEndRight.x, topTabBevelEndRight.y, 2);
+
+    s.circle(topTabSlotBevelLeftA.x, topTabSlotBevelLeftA.y, 2);
+    // s.circle(topTabSlotBevelRightA.x, topTabSlotBevelRightA.y, 2);
+    s.circle(topTabSlotBevelLeftB.x, topTabSlotBevelLeftB.y, 2);
+    // s.circle(topTabSlotBevelRightB.x, topTabSlotBevelRightB.y, 2);
+    s.circle(topTabSlotBevelInternalLeft.x, topTabSlotBevelInternalLeft.y, 2);
+    // s.circle(topTabSlotBevelInternalRight.x, topTabSlotBevelInternalRight.y, 2);
+
+    // s.circle(topTabSlotLeft.x, topTabSlotLeft.y, 2);
+    // s.circle(topTabSlotRight.x, topTabSlotRight.y, 2);
+    s.circle(topTabSlotMiddle.x, topTabSlotMiddle.y, 2);
+  }
+
+  function DrawBottomArmPoints() {
+    s.circle(bottomStackLeft.x, bottomStackLeft.y, 2);
+    s.circle(bottomStackRight.x, bottomStackRight.y, 2);
+
+    s.circle(bottomTabSlantLeft.x, bottomTabSlantLeft.y, 2);
+    s.circle(bottomTabSlantRight.x, bottomTabSlantRight.y, 2);
+    // s.circle(bottomTabEndLeft.x, bottomTabEndLeft.y, 2);
+    // s.circle(bottomTabEndRight.x, bottomTabEndRight.y, 2);
+
+    s.circle(bottomTabBevelStartLeft.x, bottomTabBevelStartLeft.y, 2);
+    s.circle(bottomTabBevelStartRight.x, bottomTabBevelStartRight.y, 2);
+    s.circle(bottomTabBevelEndLeft.x, bottomTabBevelEndLeft.y, 2);
+    s.circle(bottomTabBevelEndRight.x, bottomTabBevelEndRight.y, 2);
+
+    // s.circle(bottomTabSlotBevelLeftA.x, bottomTabSlotBevelLeftA.y, 2);
+    s.circle(bottomTabSlotBevelRightA.x, bottomTabSlotBevelRightA.y, 2);
+    // s.circle(bottomTabSlotBevelLeftB.x, bottomTabSlotBevelLeftB.y, 2);
+    s.circle(bottomTabSlotBevelRightB.x, bottomTabSlotBevelRightB.y, 2);
+    // s.circle(bottomTabSlotBevelInternalLeft.x, bottomTabSlotBevelInternalLeft.y, 2);
+    s.circle(bottomTabSlotBevelInternalRight.x, bottomTabSlotBevelInternalRight.y, 2);
+
+    // s.circle(bottomTabSlotLeft.x, bottomTabSlotLeft.y, 2);
+    // s.circle(bottomTabSlotRight.x, bottomTabSlotRight.y, 2);
+    s.circle(bottomTabSlotMiddle.x, bottomTabSlotMiddle.y, 2);
+  }
+
+  function DrawRightFlapPoints() {
+    s.circle(rightStackTop.x, rightStackTop.y, 2);
+    s.circle(rightStackBottom.x, rightStackBottom.y, 2);
+    s.circle(rightFlapMarginTop.x, rightFlapMarginTop.y, 2);
+    s.circle(rightFlapMarginBottom.x, rightFlapMarginBottom.y, 2);
+
+    s.circle(rightFlapInsertBaseTop.x, rightFlapInsertBaseTop.y, 2);
+    s.circle(rightFlapInsertBaseBottom.x, rightFlapInsertBaseBottom.y, 2);
+
+    // s.circle(rightFlapInsertTop.x, rightFlapInsertTop.y, 2);
+    // s.circle(rightFlapInsertBottom.x, rightFlapInsertBottom.y, 2);
+    s.circle(rightFlapInsertBevelStartTop.x, rightFlapInsertBevelStartTop.y, 2);
+    s.circle(rightFlapInsertBevelEndTop.x, rightFlapInsertBevelEndTop.y, 2);
+    s.circle(rightFlapInsertBevelStartBottom.x, rightFlapInsertBevelStartBottom.y, 2);
+    s.circle(rightFlapInsertBevelEndBottom.x, rightFlapInsertBevelEndBottom.y, 2);
+  }
+
+  function DrawLeftFlapPoints() {
+    s.circle(leftStackTop.x, leftStackTop.y, 2);
+    s.circle(leftStackBottom.x, leftStackBottom.y, 2);
+
+    s.circle(leftFlapMarginTop.x, leftFlapMarginTop.y, 2);
+    s.circle(leftFlapMarginBottom.x, leftFlapMarginBottom.y, 2);
+
+    s.circle(leftFlapInsertBaseTop.x, leftFlapInsertBaseTop.y, 2);
+    s.circle(leftFlapInsertBaseBottom.x, leftFlapInsertBaseBottom.y, 2);
+
+    s.circle(leftFlapSlotTop.x, leftFlapSlotTop.y, 2);
+    s.circle(leftFlapSlotBottom.x, leftFlapSlotBottom.y, 2);
+  }
+
+  function DrawTopArm() {
+    const moveToStart = `M ${cTopLeft.x} ${cTopLeft.y}`;
+
+    const lineToFlappyA = `L ${topLeftFlappyA.x} ${topLeftFlappyA.y}`;
+    const lineToFlappyB = `L ${topLeftFlappyB.x} ${topLeftFlappyB.y}`;
+
+    const lineToLeftStack = `L ${topStackLeft.x} ${topStackLeft.y}`;
+    const lineToLeftSlant = `L ${topTabSlantLeft.x} ${topTabSlantLeft.y}`;
+    const lineToLeftSlotBevel = `L ${topTabSlotBevelLeftA.x} ${topTabSlotBevelLeftA.y}`;
+    const leftSlotBevelIn = `A ${tabSlotBevel} ${tabSlotBevel} 0 0 1 ${topTabSlotBevelInternalLeft.x} ${topTabSlotBevelInternalLeft.y}`;
+    const leftSlotBevelOut = `A ${tabSlotBevel} ${tabSlotBevel} 0 0 1 ${topTabSlotBevelLeftB.x} ${topTabSlotBevelLeftB.y}`;
+
+    const lineToLeftTabBevel = `L ${topTabBevelStartLeft.x} ${topTabBevelStartLeft.y}`;
+    const leftTabBevel = `A ${tabEndBevel} ${tabEndBevel} 0 0 1 ${topTabBevelEndLeft.x} ${topTabBevelEndLeft.y}`;
+
+    const lineToRightTabBevel = `L ${topTabBevelEndRight.x} ${topTabBevelEndRight.y}`;
+    const rightTabBevel = `A ${tabEndBevel} ${tabEndBevel} 0 0 1 ${topTabBevelStartRight.x} ${topTabBevelStartRight.y}`;
+
+    const lineToRightSlant = `L ${topTabSlantRight.x} ${topTabSlantRight.y}`;
+    const lineToRightStack = `L ${topStackRight.x} ${topStackRight.y}`;
+
+    const lineToRightFlappyB = `L ${topRightFlappyB.x} ${topRightFlappyB.y}`;
+    const lineToRightFlappyA = `L ${topRightFlappyA.x} ${topRightFlappyA.y}`;
+
+    const lineToEnd = `L ${cTopRight.x} ${cTopRight.y}`;
+
+    return `
+      ${moveToStart} ${lineToFlappyA} ${lineToFlappyB}
+      ${lineToLeftStack} ${lineToLeftSlant} ${lineToLeftSlotBevel}
+      ${leftSlotBevelIn} ${leftSlotBevelOut}
+      ${lineToLeftTabBevel} ${leftTabBevel}
+      ${lineToRightTabBevel} ${rightTabBevel}
+      ${lineToRightSlant} ${lineToRightStack}
+      ${lineToRightFlappyB} ${lineToRightFlappyA}
+      ${lineToEnd}
+  `;
+  }
+
+  function DrawTopArm(tabs) {
+    const moveToStart = `M ${cTopLeft.x} ${cTopLeft.y}`;
+
+    const lineToFlappyA = tabs ? `L ${topLeftFlappyA.x} ${topLeftFlappyA.y}` : '';
+    const lineToFlappyB = tabs ? `L ${topLeftFlappyB.x} ${topLeftFlappyB.y}` : '';
+
+    const lineToLeftStack = `L ${topStackLeft.x} ${topStackLeft.y}`;
+    const lineToLeftSlant = `L ${topTabSlantLeft.x} ${topTabSlantLeft.y}`;
+    const lineToLeftSlotBevel = `L ${topTabSlotBevelLeftA.x} ${topTabSlotBevelLeftA.y}`;
+    const leftSlotBevelIn = `A ${tabSlotBevel} ${tabSlotBevel} 0 0 1 ${topTabSlotBevelInternalLeft.x} ${topTabSlotBevelInternalLeft.y}`;
+    const leftSlotBevelOut = `A ${tabSlotBevel} ${tabSlotBevel} 0 0 1 ${topTabSlotBevelLeftB.x} ${topTabSlotBevelLeftB.y}`;
+
+    const lineToLeftTabBevel = `L ${topTabBevelStartLeft.x} ${topTabBevelStartLeft.y}`;
+    const leftTabBevel = `A ${tabEndBevel} ${tabEndBevel} 0 0 1 ${topTabBevelEndLeft.x} ${topTabBevelEndLeft.y}`;
+
+    const lineToRightTabBevel = `L ${topTabBevelEndRight.x} ${topTabBevelEndRight.y}`;
+    const rightTabBevel = `A ${tabEndBevel} ${tabEndBevel} 0 0 1 ${topTabBevelStartRight.x} ${topTabBevelStartRight.y}`;
+
+    const lineToRightSlant = `L ${topTabSlantRight.x} ${topTabSlantRight.y}`;
+    const lineToRightStack = `L ${topStackRight.x} ${topStackRight.y}`;
+
+    const lineToRightFlappyB = tabs ? `L ${topRightFlappyB.x} ${topRightFlappyB.y}` : '';
+    const lineToRightFlappyA = tabs ? `L ${topRightFlappyA.x} ${topRightFlappyA.y}` : '';
+
+    const lineToEnd = `L ${cTopRight.x} ${cTopRight.y}`;
+
+    return `
+      ${moveToStart} ${lineToFlappyA} ${lineToFlappyB}
+      ${lineToLeftStack} ${lineToLeftSlant} ${lineToLeftSlotBevel}
+      ${leftSlotBevelIn} ${leftSlotBevelOut}
+      ${lineToLeftTabBevel} ${leftTabBevel}
+      ${lineToRightTabBevel} ${rightTabBevel}
+      ${lineToRightSlant} ${lineToRightStack}
+      ${lineToRightFlappyB} ${lineToRightFlappyA}
+      ${lineToEnd}
+  `;
+  }
+
+  function DrawBottomArm(tabs) {
+    const moveToStart = `M ${cBottomRight.x} ${cBottomRight.y}`;
+
+    const lineToRightFlappyA = tabs ? `L ${bottomRightFlappyA.x} ${bottomRightFlappyA.y}` : '';
+    const lineToRightFlappyB = tabs ? `L ${bottomRightFlappyB.x} ${bottomRightFlappyB.y}` : '';
+
+    const lineToLeftStack = `L ${bottomStackRight.x} ${bottomStackRight.y}`;
+    const lineToLeftSlant = `L ${bottomTabSlantRight.x} ${bottomTabSlantRight.y}`;
+    const lineToLeftSlotBevel = `L ${bottomTabSlotBevelRightA.x} ${bottomTabSlotBevelRightA.y}`;
+    const leftSlotBevelIn = `A ${tabSlotBevel} ${tabSlotBevel} 0 0 1 ${bottomTabSlotBevelInternalRight.x} ${bottomTabSlotBevelInternalRight.y}`;
+    const leftSlotBevelOut = `A ${tabSlotBevel} ${tabSlotBevel} 0 0 1 ${bottomTabSlotBevelRightB.x} ${bottomTabSlotBevelRightB.y}`;
+
+    const lineToLeftTabBevel = `L ${bottomTabBevelStartRight.x} ${bottomTabBevelStartRight.y}`;
+    const leftTabBevel = `A ${tabEndBevel} ${tabEndBevel} 0 0 1 ${bottomTabBevelEndRight.x} ${bottomTabBevelEndRight.y}`;
+
+    const lineToRightTabBevel = `L ${bottomTabBevelEndLeft.x} ${bottomTabBevelEndLeft.y}`;
+    const rightTabBevel = `A ${tabEndBevel} ${tabEndBevel} 0 0 1 ${bottomTabBevelStartLeft.x} ${bottomTabBevelStartLeft.y}`;
+
+    const lineToRightSlant = `L ${bottomTabSlantLeft.x} ${bottomTabSlantLeft.y}`;
+    const lineToRightStack = `L ${bottomStackLeft.x} ${bottomStackLeft.y}`;
+
+    const lineToFlappyB = tabs ? `L ${bottomLeftFlappyB.x} ${bottomLeftFlappyB.y}` : '';
+    const lineToFlappyA = tabs ? `L ${bottomLeftFlappyA.x} ${bottomLeftFlappyA.y}` : '';
+
+    const lineToEnd = `L ${cBottomLeft.x} ${cBottomLeft.y}`;
+
+    return `
+       ${lineToRightFlappyA} ${lineToRightFlappyB}
+      ${lineToLeftStack} ${lineToLeftSlant} ${lineToLeftSlotBevel}
+      ${leftSlotBevelIn} ${leftSlotBevelOut}
+      ${lineToLeftTabBevel} ${leftTabBevel}
+      ${lineToRightTabBevel} ${rightTabBevel}
+      ${lineToRightSlant} ${lineToRightStack}
+      ${lineToFlappyB} ${lineToFlappyA}
+      ${lineToEnd}
+  `;
+  }
+
+  function DrawRightFlap() {
+    const moveToStart = `M ${cTopRight.x} ${cTopRight.y}`;
+    const lineToTopStack = `L ${rightStackTop.x} ${rightStackTop.y}`;
+    const lineToTopMargin = `L ${rightFlapMarginTop.x} ${rightFlapMarginTop.y}`;
+    const lineToInsertBaseTop = `L ${rightFlapInsertBaseTop.x} ${rightFlapInsertBaseTop.y}`;
+
+    const lineToInsertBevelTop = `L ${rightFlapInsertBevelStartTop.x} ${rightFlapInsertBevelStartTop.y}`;
+    const insertBevelTop = `A ${flapBevel} ${flapBevel} 0 0 1 ${rightFlapInsertBevelEndTop.x} ${rightFlapInsertBevelEndTop.y}`;
+    const lineToInsertBevelBottom = `L ${rightFlapInsertBevelEndBottom.x} ${rightFlapInsertBevelEndBottom.y}`;
+    const insertBevelBottom = `A ${flapBevel} ${flapBevel} 0 0 1 ${rightFlapInsertBevelStartBottom.x} ${rightFlapInsertBevelStartBottom.y}`;
+    const lineToInsertBaseBottom = `L ${rightFlapInsertBaseBottom.x} ${rightFlapInsertBaseBottom.y}`;
+
+    const lineToBottomMargin = `L ${rightFlapMarginBottom.x} ${rightFlapMarginBottom.y}`;
+    const lineToBottomStack = `L ${rightStackBottom.x} ${rightStackBottom.y}`;
+    const lineToEnd = `L ${cBottomRight.x} ${cBottomRight.y}`;
+
+    return `
+      ${lineToTopStack} ${lineToTopMargin} ${lineToInsertBaseTop}
+      ${lineToInsertBevelTop} ${insertBevelTop}
+      ${lineToInsertBevelBottom}
+      ${insertBevelBottom} ${lineToInsertBaseBottom}
+      ${lineToBottomMargin} ${lineToBottomStack} ${lineToEnd}
+  `;
+  }
+
+  function DrawLeftFlap() {
+    const moveToStart = `M ${cBottomLeft.x} ${cBottomLeft.y}`;
+    const lineToTopStack = `L ${leftStackBottom.x} ${leftStackBottom.y}`;
+    const lineToTopMargin = `L ${leftFlapMarginBottom.x} ${leftFlapMarginBottom.y}`;
+    const lineToInsertBaseTop = `L ${leftFlapInsertBaseBottom.x} ${leftFlapInsertBaseBottom.y}`;
+    const lineToInsertBaseBottom = `L ${leftFlapInsertBaseTop.x} ${leftFlapInsertBaseTop.y}`;
+    const lineToBottomMargin = `L ${leftFlapMarginTop.x} ${leftFlapMarginTop.y}`;
+    const lineToBottomStack = `L ${leftStackTop.x} ${leftStackTop.y}`;
+    const lineToEnd = `L ${cTopLeft.x} ${cTopLeft.y}`;
+
+    return `
+       ${lineToTopStack} ${lineToTopMargin} ${lineToInsertBaseTop}
+      ${lineToInsertBaseBottom}
+      ${lineToBottomMargin} ${lineToBottomStack} ${lineToEnd}
+    `;
+  }
+</script>
+</body>
+</html>
